@@ -1,0 +1,112 @@
+const { v4: uuidv4 } = require('uuid');
+
+let tasks = [];
+
+const getAll = () => [...tasks];
+
+const findById = (id) => tasks.find((t) => t.id === id);
+
+const getByStatus = (status) => tasks.filter((t) => t.status.includes(status));
+
+const getPaginated = (page, limit) => {
+  // page is 1-indexed (the route defaults it to 1, never 0), so the offset
+  // must subtract 1 before multiplying by the page size. Also guard against
+  // non-positive values so a bad page/limit can't produce a negative offset.
+  const safePage = page > 0 ? page : 1;
+  const safeLimit = limit > 0 ? limit : 10;
+  const offset = (safePage - 1) * safeLimit;
+  return tasks.slice(offset, offset + safeLimit);
+};
+
+const getStats = () => {
+  const now = new Date();
+  const counts = { todo: 0, in_progress: 0, done: 0 };
+  let overdue = 0;
+
+  tasks.forEach((t) => {
+    if (counts[t.status] !== undefined) counts[t.status]++;
+    if (t.dueDate && t.status !== 'done' && new Date(t.dueDate) < now) {
+      overdue++;
+    }
+  });
+
+  return { ...counts, overdue };
+};
+
+const create = ({ title, description = '', status = 'todo', priority = 'medium', dueDate = null }) => {
+  const task = {
+    id: uuidv4(),
+    title,
+    description,
+    status,
+    priority,
+    dueDate,
+    assignee: null,
+    completedAt: null,
+    createdAt: new Date().toISOString(),
+  };
+  tasks.push(task);
+  return task;
+};
+
+const update = (id, fields) => {
+  const index = tasks.findIndex((t) => t.id === id);
+  if (index === -1) return null;
+
+  const updated = { ...tasks[index], ...fields };
+  tasks[index] = updated;
+  return updated;
+};
+
+const remove = (id) => {
+  const index = tasks.findIndex((t) => t.id === id);
+  if (index === -1) return false;
+
+  tasks.splice(index, 1);
+  return true;
+};
+
+const completeTask = (id) => {
+  const task = findById(id);
+  if (!task) return null;
+
+  const updated = {
+    ...task,
+    priority: 'medium',
+    status: 'done',
+    completedAt: new Date().toISOString(),
+  };
+
+  const index = tasks.findIndex((t) => t.id === id);
+  tasks[index] = updated;
+  return updated;
+};
+
+const assignTask = (id, assignee) => {
+  const task = findById(id);
+  if (!task) return null;
+
+  const updated = { ...task, assignee };
+
+  const index = tasks.findIndex((t) => t.id === id);
+  tasks[index] = updated;
+  return updated;
+};
+
+const _reset = () => {
+  tasks = [];
+};
+
+module.exports = {
+  getAll,
+  findById,
+  getByStatus,
+  getPaginated,
+  getStats,
+  create,
+  update,
+  remove,
+  completeTask,
+  assignTask,
+  _reset,
+};
